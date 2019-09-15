@@ -1,0 +1,3 @@
+/home/anthony/Desktop/School/Fall2019/OS/MSH/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/anthony/Desktop/School/Fall2019/OS/MSH/cmake-build-debug/CMakeFiles/MSH.dir
+/home/anthony/Desktop/School/Fall2019/OS/MSH/cmake-build-debug/CMakeFiles/edit_cache.dir
