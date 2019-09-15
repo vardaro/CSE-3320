@@ -48,7 +48,7 @@
 #define MAX_NUM_ARGUMENTS 5     // Mav shell only supports five arguments
 
 #define MAX_PIDS          15
-#define MAX_HISTORY       5
+#define MAX_HISTORY       50
 
 #define EXIT              42
 
@@ -60,33 +60,35 @@ struct pids {
 
 // Used to track up to 50 command
 struct history {
-    char listing[MAX_HISTORY][255];
+    char listing[MAX_HISTORY][MAX_COMMAND_SIZE];
     int offset;
 };
 
 //  For storing BG pid
+//  On every fork(), this variable gets updated with the latest PID.
 pid_t CURRENT_BG_PROCESS = -1;
 
-int input_handler(char * cmd_str, struct history * hist, struct pids * pids);
-
+int input_handler(char *cmd_str, struct history *hist, struct pids *pids);
 
 int pid_push(struct pids *pids, pid_t p);
 
-void pid_show(struct pids * pids);
+void pid_show(struct pids *pids);
 
-int history_push(struct history *hist, char * token);
+int history_push(struct history *hist, char *token);
 
-void history_show(struct history * hist);
+void history_show(struct history *hist);
 
-void nth_command(struct history * hist, struct pids * pids, char * token[MAX_COMMAND_SIZE]);
+void nth_command(struct history *hist, struct pids *pids, char *token[MAX_COMMAND_SIZE]);
 
-int exec_cmd(char *token[], struct pids * pids);
+int exec_cmd(char *token[], struct pids *pids);
 
-int interpreter(char **token, struct history * history, struct pids *pids);
+int interpreter(char **token, struct history *history, struct pids *pids);
 
 void signal_handler(int signal);
 
 int bg();
+
+void trim_whitespace(char *s);
 
 int main() {
 
@@ -99,11 +101,10 @@ int main() {
     pids.offset = 0;
 
 //  configure signal handler to catch ctrl-c and ctrl-z
-    signal(SIGINT, signal_handler);
     signal(SIGTSTP, signal_handler);
+    signal(SIGINT, signal_handler);
 
     while (1) {
-        // Print out the msh prompt
         printf("msh> ");
 
         while (!fgets(cmd_str, MAX_COMMAND_SIZE, stdin));
@@ -111,21 +112,33 @@ int main() {
         history_push(&history, cmd_str);
 
         int ret = input_handler(cmd_str, &history, &pids);
-        if (ret == EXIT)
-            break;
 
-
+        if (ret == EXIT) {
+            free(cmd_str);
+            exit(0);
+        }
     }
-    return 0;
 }
 
-int input_handler(char * cmd_str, struct history * hist, struct pids * pids) {
+/**
+ * Takes raw input for shell, splits shell input by ";",
+ * then splits each partition into character array delimited by whitespace
+ *
+ * It delegates each character array to the interpreter function which decides
+ * what action to commit
+ * @param cmd_str raw input
+ * @param hist history ptr
+ * @param pids pids ptr
+ * @return 0 on success
+ *         != 0 if something went horribly wrong.
+ */
+int input_handler(char *cmd_str, struct history *hist, struct pids *pids) {
     int ret;
     // split the cmd _ str by ';'
     // execute each partition invidiually
-    char * cpy = strndup(cmd_str, MAX_COMMAND_SIZE);
-    char * addr = cpy;
-    char * partition;
+    char *cpy = strndup(cmd_str, MAX_COMMAND_SIZE);
+    char *addr = cpy;
+    char *partition;
     while ((partition = strsep(&cpy, SPLIT)) != NULL) {
         // each iteration, is a unique partition of cmd_str delimited by ;
         // at this level we can break the partition into pieces delimited by " "
@@ -154,16 +167,26 @@ int input_handler(char * cmd_str, struct history * hist, struct pids * pids) {
         }
 
         ret = interpreter(token, hist, pids);
+        free(working_root);
         if (ret == EXIT)
             break;
 
-        free(working_root);
 
     }
 
     free(addr);
     return ret;
 }
+
+/**
+ * Pushes a new PID to the pid struct.
+ * If the array is at max capacity, we must begin overwriting
+ * elements from the beginning of the array, increasing
+ * @param pids pids ptr
+ * @param p pid to push
+ * @return -1 if *pid is NULL
+ *          0 on success.
+ */
 int pid_push(struct pids *pids, pid_t p) {
     if (pids == NULL)
         return -1;
@@ -176,7 +199,14 @@ int pid_push(struct pids *pids, pid_t p) {
     return 0;
 }
 
-void pid_show(struct pids * pids) {
+/**
+ * Prints the pid struct
+ * Because we begin to overwrite pids at the beginning of array when it gets too big,
+ * we have to print the entries after the "pivot" index (pivot -> end), then print the elements
+ * (0 -> pivot -1)
+ * @param pids pids ptr
+ */
+void pid_show(struct pids *pids) {
     if (pids == NULL)
         return;
     if (pids->offset == 0)
@@ -186,18 +216,24 @@ void pid_show(struct pids * pids) {
     if (pids->offset % MAX_PIDS != pids->offset) {
         for (int i = pids->offset % MAX_PIDS; i < MAX_PIDS; i++) {
             int pos = i % MAX_PIDS;
-            printf("%d:\t%d\n", numbering,(int)pids->listing[pos]);
+            printf("%d:\t%d\n", numbering, (int) pids->listing[pos]);
             numbering++;
         }
     }
     for (int i = 0; i < pids->offset % MAX_PIDS; i++) {
-        printf("%d:\t%d\n", numbering,(int)pids->listing[i]);
+        printf("%d:\t%d\n", numbering, (int) pids->listing[i]);
         numbering++;
     }
 }
 
-
-int history_push(struct history *hist, char * token) {
+/**
+ * Does essentially the same as pids_push()
+ * @param hist hist ptr
+ * @param token string to write
+ * @return -1 if ptr is null
+ *          0 on success
+ */
+int history_push(struct history *hist, char *token) {
     if (hist == NULL)
         return -1;
 
@@ -208,7 +244,11 @@ int history_push(struct history *hist, char * token) {
     return 0;
 }
 
-void history_show(struct history * hist) {
+/**
+ * Same concept of pids_show()
+ * @param hist history ptr.
+ */
+void history_show(struct history *hist) {
     if (hist == NULL)
         return;
     if (hist->offset == 0)
@@ -219,44 +259,45 @@ void history_show(struct history * hist) {
 
     if (hist->offset % MAX_HISTORY != hist->offset) {
         for (int i = hist->offset % MAX_HISTORY; i < MAX_HISTORY; i++) {
-            // if the user has not entered more than MAX_HISTORY commands
-            // this condition will exit the loop on the first iteration,
-            // and only the second loop will run.
-            // if user has 10 commands (hist.offset = 10) with a max of 50,
-            // 10 % 50 == 10 == hist.offset, break the loop
-
             int pos = i % MAX_HISTORY;
             printf("%d:\t%s", numbering, hist->listing[pos]);
             numbering++;
         }
     }
-    for (int i = 0; i < hist->offset%MAX_HISTORY; i++) {
+    for (int i = 0; i < hist->offset % MAX_HISTORY; i++) {
         printf("%d:\t%s", numbering, hist->listing[i]);
         numbering++;
     }
 }
 
-void nth_command(struct history * hist, struct pids * pids, char * token[MAX_COMMAND_SIZE]) {
-    int n = (int)strtol(&token[0][1], NULL, 10);
+void nth_command(struct history *hist, struct pids *pids, char *token[MAX_COMMAND_SIZE]) {
+    int n = (int) strtol(&token[0][1], NULL, 10);
     int max = 15;
     if (n > max || n > hist->offset) {
         printf("Command not found in history.\n");
         return;
     }
 
-
-//    printf("%s", hist->listing[n]);
-
     // access command in history at N, and send it to input handler function
-    char * cpy = strndup(hist->listing[n], MAX_COMMAND_SIZE);
+    char *cpy = strndup(hist->listing[n], MAX_COMMAND_SIZE);
     input_handler(cpy, hist, pids);
 }
 
-int interpreter(char **token, struct history * history, struct pids *pids) {
+/**
+ * Accepts a string array, and decides what to do with it
+ * @param token char **
+ * @param history history ptr
+ * @param pids pids ptr
+ * @return EXIT if token[0]==("quit" || "exit")
+ *         0 if everything works
+ *         something not 0 is something breaks here
+ */
+int interpreter(char **token, struct history *history, struct pids *pids) {
     if (token[0] == NULL)
         return 0;
     if (strncmp(token[0], "quit", MAX_COMMAND_SIZE) == 0 ||
         strncmp(token[0], "exit", MAX_COMMAND_SIZE) == 0) {
+        printf("In quit\n");
         return EXIT;
     } else if (strncmp(token[0], "listpids", MAX_COMMAND_SIZE) == 0) {
         // Show the last 15 process created
@@ -276,13 +317,18 @@ int interpreter(char **token, struct history * history, struct pids *pids) {
 
 
     // If the code reaches here then the user input gets passed along to the execvp handler
-    return exec_cmd(token,pids);
+    return exec_cmd(token, pids);
 }
 
-int exec_cmd(char *token[], struct pids * pids) {
-    int exec_status;
-    int num_paths = 4;
-    char * search_paths[] = {
+/**
+ * Accepts string array, executes it as a commmand using exec()
+ * @param token char **
+ * @param pids pids ptr
+ * @return see exec() doc
+ */
+int exec_cmd(char *token[], struct pids *pids) {
+    int exec_status, status, num_paths = 4;
+    char *search_paths[] = {
             "/",
             "/usr/local/bin/",
             "/usr/bin/",
@@ -310,13 +356,19 @@ int exec_cmd(char *token[], struct pids * pids) {
 
         printf("%s: Command not found.\n", token[0]);
     }
-    wait(NULL);
+    waitpid(child_status, &status, 0);
     return exec_status;
 }
 
+/**
+ * Resumes a BG process, if there is one.
+ * @return see kill()
+ */
 int bg() {
-    if (CURRENT_BG_PROCESS == -1)
+    if (CURRENT_BG_PROCESS == -1) {
+        printf("No process to resume\n");
         return 0;
+    }
     // run kill() with SIGCONT to resume paused process
     int r = kill(CURRENT_BG_PROCESS, SIGCONT);
     if (r == -1)
@@ -325,11 +377,22 @@ int bg() {
     return r;
 }
 
+void trim_whitespace(char *s) {
+
+}
+
 void signal_handler(int signal) {
     //doesnt do much
-    if (signal != SIGINT && signal != SIGTSTP)
+    if (signal != SIGINT && signal != SIGTSTP) {
         printf("Signal error\n");
-    return;
+        return;
+    }
+
+    if (signal == SIGTSTP) {
+//        kill(CURRENT_BG_PROCESS, SIGTSTP);
+        printf("Caught a SIGTSTP\n");
+        int r = kill(CURRENT_BG_PROCESS, SIGCONT);
+    }
 }
 
 
