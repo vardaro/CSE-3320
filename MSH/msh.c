@@ -26,10 +26,6 @@
  * ID:   1001522383
  */
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
-#define _GNU_SOURCE
-
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -224,15 +220,15 @@ void pid_show(struct pids *pids) {
     if (pids->offset == 0)
         return;
 
-    int numbering = 0;
+    int numbering = 0, i;
     if (pids->offset % MAX_PIDS != pids->offset) {
-        for (int i = pids->offset % MAX_PIDS; i < MAX_PIDS; i++) {
+        for (i = pids->offset % MAX_PIDS; i < MAX_PIDS; i++) {
             int pos = i % MAX_PIDS;
             printf("%d:\t%d\n", numbering, (int) pids->listing[pos]);
             numbering++;
         }
     }
-    for (int i = 0; i < pids->offset % MAX_PIDS; i++) {
+    for (i = 0; i < pids->offset % MAX_PIDS; i++) {
         printf("%d:\t%d\n", numbering, (int) pids->listing[i]);
         numbering++;
     }
@@ -267,16 +263,16 @@ void history_show(struct history *hist) {
         return;
 
     // numbering tracks the list order int for both loops.
-    int numbering = 0;
+    int numbering = 0, i;
 
     if (hist->offset % MAX_HISTORY != hist->offset) {
-        for (int i = hist->offset % MAX_HISTORY; i < MAX_HISTORY; i++) {
+        for (i = hist->offset % MAX_HISTORY; i < MAX_HISTORY; i++) {
             int pos = i % MAX_HISTORY;
             printf("%d:\t%s", numbering, hist->listing[pos]);
             numbering++;
         }
     }
-    for (int i = 0; i < hist->offset % MAX_HISTORY; i++) {
+    for (i = 0; i < hist->offset % MAX_HISTORY; i++) {
         printf("%d:\t%s", numbering, hist->listing[i]);
         numbering++;
     }
@@ -317,7 +313,6 @@ int interpreter(char **token, struct history *history, struct pids *pids) {
         return 0;
     if (strncmp(token[0], "quit", MAX_COMMAND_SIZE) == 0 ||
         strncmp(token[0], "exit", MAX_COMMAND_SIZE) == 0) {
-        printf("In quit\n");
         return EXIT;
     } else if (strncmp(token[0], "listpids", MAX_COMMAND_SIZE) == 0) {
         // Show the last 15 process created
@@ -347,7 +342,7 @@ int interpreter(char **token, struct history *history, struct pids *pids) {
  * @return see exec() doc
  */
 int exec_cmd(char *token[], struct pids *pids) {
-    int exec_status, status, num_paths = 4;
+    int exec_status, status, i, num_paths = 4;
     char *search_paths[] = {
             "/",
             "/usr/local/bin/",
@@ -363,7 +358,7 @@ int exec_cmd(char *token[], struct pids *pids) {
     char cur[100];
     if (child_status == 0) {
         // child process
-        for (int i = 0, len = num_paths; i < len; i++) {
+        for (i = 0; i < num_paths; i++) {
             memset(cur, 0, sizeof(cur));
             strcpy(cur, search_paths[i]);
             strncat(cur, token[0], MAX_COMMAND_SIZE);
@@ -415,6 +410,3 @@ void trim_whitespace(char *s) {
 
     strcpy(s, cpy);
 }
-
-
-#pragma clang diagnostic pop
