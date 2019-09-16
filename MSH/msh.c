@@ -45,7 +45,7 @@
 // will separate the tokens on our command line
 
 #define MAX_COMMAND_SIZE  255    // The maximum command-line size
-#define MAX_NUM_ARGUMENTS 5     // Mav shell only supports five arguments
+#define MAX_NUM_ARGUMENTS 11    // Mav shell only supports 10 arguments, eleven to account for filename
 
 #define MAX_PIDS          15
 #define MAX_HISTORY       50
@@ -84,7 +84,8 @@ int exec_cmd(char *token[], struct pids *pids);
 
 int interpreter(char **token, struct history *history, struct pids *pids);
 
-void signal_handler(int signal);
+// doesnt do anything
+void signal_handler(int signal) {}
 
 int bg();
 
@@ -100,9 +101,18 @@ int main() {
     struct pids pids;
     pids.offset = 0;
 
-//  configure signal handler to catch ctrl-c and ctrl-z
-    signal(SIGTSTP, signal_handler);
-    signal(SIGINT, signal_handler);
+    // https://www.linuxprogrammingblog.com/code-examples/sigaction
+    struct sigaction act;
+    memset (&act, '\0', sizeof(act));
+    act.sa_handler = &signal_handler;
+    if (sigaction(SIGINT , &act, NULL) < 0){
+        perror ("sigaction: ");
+        return 1;
+    }
+    if (sigaction(SIGTSTP , &act, NULL) < 0) {
+        perror ("sigaction: ");
+        return 1;
+    }
 
     while (1) {
         printf("msh> ");
@@ -142,6 +152,8 @@ int input_handler(char *cmd_str, struct history *hist, struct pids *pids) {
     while ((partition = strsep(&cpy, SPLIT)) != NULL) {
         // each iteration, is a unique partition of cmd_str delimited by ;
         // at this level we can break the partition into pieces delimited by " "
+        trim_whitespace(partition);
+
         char *token[MAX_NUM_ARGUMENTS];
         memset(token, 0, sizeof(token));
         int token_count = 0;
@@ -377,22 +389,23 @@ int bg() {
     return r;
 }
 
+/**
+ * Sometimes when uesrs enter many commands delimited ";" like this:
+ * msh> echo foo; echo bar
+ * foo
+ *
+ * bar will not be printed as there is trailing whitespace before "echo bar"
+ * this function aims to remove that trim that whitespace
+ *
+ * @param s string to modify;
+ */
 void trim_whitespace(char *s) {
+    char * cpy = strndup(s, MAX_COMMAND_SIZE);
 
-}
+    while (*cpy == ' ')
+        *cpy++;
 
-void signal_handler(int signal) {
-    //doesnt do much
-    if (signal != SIGINT && signal != SIGTSTP) {
-        printf("Signal error\n");
-        return;
-    }
-
-    if (signal == SIGTSTP) {
-//        kill(CURRENT_BG_PROCESS, SIGTSTP);
-        printf("Caught a SIGTSTP\n");
-        int r = kill(CURRENT_BG_PROCESS, SIGCONT);
-    }
+    strcpy(s, cpy);
 }
 
 
