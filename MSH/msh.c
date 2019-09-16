@@ -116,7 +116,6 @@ int main() {
         while (!fgets(cmd_str, MAX_COMMAND_SIZE, stdin));
 
         history_push(&history, cmd_str);
-
         int ret = input_handler(cmd_str, &history, &pids);
 
         if (ret == EXIT) {
@@ -370,6 +369,7 @@ int exec_cmd(char *token[], struct pids *pids) {
         }
 
         printf("%s: Command not found.\n", token[0]);
+        _exit(0);
     }
     waitpid(child_status, &status, 0);
     return exec_status;
