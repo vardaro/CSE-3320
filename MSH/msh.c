@@ -281,7 +281,15 @@ void history_show(struct history *hist) {
         numbering++;
     }
 }
-
+/**
+ * Per the requirements, the max N is 15, meaning the only commands that can
+ * get reexecuted at from indexes [0...14]
+ *
+ * Therefore we need not to do any fancy % index operations, we can access the cmd normally
+ * @param hist
+ * @param pids
+ * @param token
+ */
 void nth_command(struct history *hist, struct pids *pids, char *token[MAX_COMMAND_SIZE]) {
     int n = (int) strtol(&token[0][1], NULL, 10);
     int max = 15;
