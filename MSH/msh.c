@@ -34,6 +34,9 @@
 #include <string.h>
 #include <signal.h>
 
+// Necessary definition for functions like stdndup()
+#define _XOPEN_SOURCE 700
+
 #define SPLIT      ";"
 #define WHITESPACE " \t\n"      // We want to split our command line up into tokens
 // so we need to define what delimits our tokens.
@@ -406,7 +409,7 @@ void trim_whitespace(char *s) {
     char * cpy = strndup(s, MAX_COMMAND_SIZE);
 
     while (*cpy == ' ')
-        *cpy++;
+        ++cpy;
 
     strcpy(s, cpy);
 }
