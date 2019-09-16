@@ -34,9 +34,6 @@
 #include <string.h>
 #include <signal.h>
 
-// Necessary definition for functions like stdndup()
-#define _XOPEN_SOURCE 700
-
 #define SPLIT      ";"
 #define WHITESPACE " \t\n"      // We want to split our command line up into tokens
 // so we need to define what delimits our tokens.
@@ -145,7 +142,7 @@ int input_handler(char *cmd_str, struct history *hist, struct pids *pids) {
     int ret;
     // split the cmd _ str by ';'
     // execute each partition invidiually
-    char *cpy = strndup(cmd_str, MAX_COMMAND_SIZE);
+    char *cpy = strdup(cmd_str);
     char *addr = cpy;
     char *partition;
     while ((partition = strsep(&cpy, SPLIT)) != NULL) {
@@ -170,7 +167,7 @@ int input_handler(char *cmd_str, struct history *hist, struct pids *pids) {
         // Tokenize the input stringswith whitespace used as the delimiter
         while (((arg_ptr = strsep(&working_str, WHITESPACE)) != NULL) &&
                (token_count < MAX_NUM_ARGUMENTS)) {
-            token[token_count] = strndup(arg_ptr, MAX_COMMAND_SIZE);
+            token[token_count] = strdup(arg_ptr);
             if (strlen(token[token_count]) == 0) {
                 token[token_count] = NULL;
             }
@@ -298,7 +295,7 @@ void nth_command(struct history *hist, struct pids *pids, char *token[MAX_COMMAN
     }
 
     // access command in history at N, and send it to input handler function
-    char *cpy = strndup(hist->listing[n], MAX_COMMAND_SIZE);
+    char *cpy = strdup(hist->listing[n]);
     input_handler(cpy, hist, pids);
 }
 
@@ -406,7 +403,7 @@ int bg() {
  * @param s string to modify;
  */
 void trim_whitespace(char *s) {
-    char * cpy = strndup(s, MAX_COMMAND_SIZE);
+    char * cpy = strdup(s);
 
     while (*cpy == ' ')
         ++cpy;
