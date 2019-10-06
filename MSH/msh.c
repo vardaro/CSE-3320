@@ -343,7 +343,7 @@ int interpreter(char **token, struct history *history, struct pids *pids) {
 int exec_cmd(char *token[], struct pids *pids) {
     int exec_status, status, i, num_paths = 4;
     char *search_paths[] = {
-            "/",
+            "",
             "/usr/local/bin/",
             "/usr/bin/",
             "/bin/"
@@ -377,6 +377,7 @@ int exec_cmd(char *token[], struct pids *pids) {
 
 /**
  * Resumes a BG process, if there is one.
+ * After a process is resumed, it cannot be stopped and resumed again
  * @return see kill()
  */
 int bg() {
@@ -399,12 +400,13 @@ int bg() {
  *
  * bar will not be printed as there is trailing whitespace before "echo bar"
  * this function aims to remove that trim that whitespace
- *
+ * we dont care about trailing whitespace after the string
  * @param s string to modify;
  */
 void trim_whitespace(char *s) {
     char * cpy = strdup(s);
 
+    // while current = ' ', offset start by 1
     while (*cpy == ' ')
         ++cpy;
 
