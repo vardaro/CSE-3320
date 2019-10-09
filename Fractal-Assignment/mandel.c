@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 
 struct thread_payload {
 	struct bitmap * bm;
@@ -24,8 +25,8 @@ struct thread_payload {
 
 int iteration_to_color( int i, int max );
 int iterations_at_point( double x, double y, int max );
-// void compute_image( struct bitmap *bm, double xmin, double xmax, double ymin, double ymax, int max );
 void compute_image(struct bitmap *bm, double xmin, double xmax, double ymin, double ymax, int max, int threads);
+void * compute_chunk(void * args);
 
 void show_help() {
 	printf("Use: mandel [options]\n");
@@ -37,6 +38,7 @@ void show_help() {
 	printf("-W <pixels> Width of the image in pixels. (default=500)\n");
 	printf("-H <pixels> Height of the image in pixels. (default=500)\n");
 	printf("-o <file>   Set output file. (default=mandel.bmp)\n");
+	printf("-t <threads>   Set number of threads. (default=1)\n");
 	printf("-h          Show this help text.\n");
 	printf("\nSome examples are:\n");
 	printf("mandel -x -0.5 -y -0.5 -s 0.2\n");
@@ -107,6 +109,7 @@ int main( int argc, char *argv[] ) {
 	// Compute the Mandelbrot image
 	compute_image(bm,xcenter-scale,xcenter+scale,ycenter-scale,ycenter+scale,max, threads);
 
+
 	// Save the image in the stated file.
 	if(!bitmap_save(bm,outfile)) {
 		fprintf(stderr,"mandel: couldn't write to %s: %s\n",outfile,strerror(errno));
@@ -116,6 +119,10 @@ int main( int argc, char *argv[] ) {
 	return 0;
 }
 
+/**
+ * Meant to be called by compute_image(), computes only
+ * a small partition of the overall image
+ */
 void * compute_chunk(void * args) {
 	struct thread_payload * p = (struct thread_payload *)args;
 	int j,i;
@@ -148,7 +155,7 @@ void compute_image( struct bitmap *bm, double xmin, double xmax, double ymin, do
 	int width = bitmap_width(bm);
 	int height = bitmap_height(bm);
 
-	// For every pixel in the image...
+	/* Create an array of thread args, populate them on each iteration.*/
 	pthread_t tid[threads];
 	struct thread_payload args[threads];
 	chunk_size = height / threads;
@@ -164,6 +171,7 @@ void compute_image( struct bitmap *bm, double xmin, double xmax, double ymin, do
 		args[i].width = width;
 		args[i].height = height;
 
+		/* spawn thread */
 		pthread_create(&tid[i], NULL, compute_chunk, &args[i]);
 	}
 
