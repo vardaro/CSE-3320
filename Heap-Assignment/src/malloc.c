@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
 
@@ -91,14 +92,14 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
    /* Traverse the LL, if we find a new min, redefine "best" to the current iteration */
    while (curr != NULL) {
       
-      bool can_store_block = curr->free && curr->size >= size;
-      bool is_way_better = (best == NULL) || curr->size < best->size;
+      bool can_store_block = (curr->free) && (curr->size >= size);
+      bool is_way_better = (best == NULL) || (curr->size <= best->size);
 
       if (can_store_block && is_way_better) {
          best = curr;
 
          /* optimal case where we have a perfect fitting block, we can exit early */
-         if (best->size == size) {
+         if (best->size yo == size) {
             break;
          }
       }
@@ -116,7 +117,7 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
 
    /* Traverse the LL, if we find a new min, redefine "best" to the current iteration */
    while (curr != NULL) {
-      bool can_store_block = (curr->free) && (curr->size > size);
+      bool can_store_block = (curr->free) && (curr->size >= size);
       bool is_so_much_worse = (worst == NULL) || (curr->size > worst->size);
 
       if (can_store_block && is_so_much_worse) {
@@ -285,6 +286,21 @@ void *malloc(size_t size)
 
    /* Return data address associated with _block */
    return BLOCK_DATA(next);
+}
+
+/* The way realloc works is by deallocating the old pointer, and reallocating a new one at a new size. */
+void * realloc(void * old, size_t s) {
+   struct _block * new = malloc(s);
+   memcpy(new, old, s);
+   free(old);
+
+   return new;
+}
+
+void* calloc(size_t num, size_t size_of_element) {
+   struct _block * ptr = malloc(num * size_of_element);
+   memset(ptr, 0, num * size_of_element);
+   return ptr;
 }
 
 /*
