@@ -99,7 +99,7 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
          best = curr;
 
          /* optimal case where we have a perfect fitting block, we can exit early */
-         if (best->size yo == size) {
+         if (best->size == size) {
             break;
          }
       }
