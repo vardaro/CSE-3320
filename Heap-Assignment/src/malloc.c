@@ -34,7 +34,7 @@ static int max_heap          = 0;
 void printStatistics( void )
 {
   printf("\nheap management statistics\n");
-  printf("mallocs:\t%d\n", num_mallocs - 1);
+  printf("mallocs:\t%d\n", num_mallocs);
   printf("frees:\t\t%d\n", num_frees );
   printf("reuses:\t\t%d\n", num_reuses );
   printf("grows:\t\t%d\n", num_grows );
@@ -87,21 +87,23 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
    /* Which is really just finding the min node of a linked list */
 
    /* Stores our lowest value */
-   struct _block * best = NULL;
-
    /* Traverse the LL, if we find a new min, redefine "best" to the current iteration */
+
+   struct _block * best = NULL;
    while (curr != NULL) {
       
-      bool can_store_block = (curr->free) && (curr->size >= size);
-      bool is_way_better = (best == NULL) || (curr->size <= best->size);
+      bool can_store_block = (curr->free) && (curr->size >= (size + sizeof(struct _block *)));
+      bool is_way_better = (best == NULL) || (curr->size < best->size);
 
       if (can_store_block && is_way_better) {
+
          best = curr;
 
          /* optimal case where we have a perfect fitting block, we can exit early */
-         if (best->size == size) {
+         if (best->size == size + sizeof(struct _block *)) {
             break;
          }
+
       }
 
       curr = curr->next;
