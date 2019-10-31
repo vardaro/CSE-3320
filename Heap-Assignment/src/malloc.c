@@ -34,7 +34,7 @@ static int max_heap          = 0;
 void printStatistics( void )
 {
   printf("\nheap management statistics\n");
-  printf("mallocs:\t%d\n", num_mallocs - 1 /* lol */);
+  printf("mallocs:\t%d\n", num_mallocs - 1);
   printf("frees:\t\t%d\n", num_frees );
   printf("reuses:\t\t%d\n", num_reuses );
   printf("grows:\t\t%d\n", num_grows );
