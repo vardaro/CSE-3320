@@ -1,0 +1,24 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/anthony/Desktop/School/Fall2019/OS/MFS/mfs.c
+stdio.h
+-
+unistd.h
+-
+sys/wait.h
+-
+stdlib.h
+-
+errno.h
+-
+string.h
+-
+signal.h
+-
+

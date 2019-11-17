@@ -1,0 +1,3 @@
+/home/anthony/Desktop/School/Fall2019/OS/MFS/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/anthony/Desktop/School/Fall2019/OS/MFS/cmake-build-debug/CMakeFiles/MFS.dir
+/home/anthony/Desktop/School/Fall2019/OS/MFS/cmake-build-debug/CMakeFiles/edit_cache.dir

@@ -1,7 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/MSH.dir/msh.c.o"
-  "MSH.pdb"
   "MSH"
+  "MSH.pdb"
 )
 
 # Per-language clean rules from dependency scanning.
