@@ -1,7 +1,8 @@
 {
     "files.associations": {
         "string.h": "c",
-        "limits.h": "c"
+        "limits.h": "c",
+        "stdint.h": "c"
     },
     "C_Cpp.dimInactiveRegions": false
 }
