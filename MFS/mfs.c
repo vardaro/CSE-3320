@@ -61,7 +61,7 @@ enum fn_state
     ERROR
 };
 
-struct directory
+struct directory_entry
 {
     uint8_t valid;
     char filename[255];
@@ -72,24 +72,19 @@ struct inode
 {
     uint8_t attribute;
     uint8_t valid;
-    uint8_t size;
+    int size;
     uint32_t blocks[1250];
 };
 
-struct directory *dir;
+struct directory_entry *dir;
 struct inode *inodes;
 uint8_t *free_block_list;
 uint8_t *free_inode_list;
 
-// fat32 spec struct
-// https://www.win.tue.nl/~aeb/linux/fs/fat/fat-1.html
-
-unsigned char file_data[NUM_BLOCKS][BLOCK_SIZE];
-
 void init_fs(char * filename) {
     fd = fopen(filename, "w");
 
-    memset(&blocks[i], 0, NUM_BLOCKS * BLOCK_SIZE);
+    memset(&blocks[0], 0, NUM_BLOCKS * BLOCK_SIZE);
 
     fwrite(&blocks[0], NUM_BLOCKS, BLOCK_SIZE, fd);
 
@@ -132,7 +127,7 @@ void init_inodes()
     int i;
     for (i = 0; i < NUM_FILES; i++)
     {
-        inodes[i].valid = NOT_FREE;
+        inodes[i].valid = FREE;
         inodes[i].size = 0;
         inodes[i].attribute = 0;
 
@@ -163,10 +158,10 @@ int find_directory_index(char *filename)
 {
     // check is filename is already there
     int i;
-    int ret = ERROR;
+    int ret = -1;
     for (i = 0; i < NUM_FILES; i++)
     {
-        if (strcmp(filelength, dir[i].filename) == 0)
+        if (strcmp(filename, dir[i].filename) == 0)
         {
             return i;
         }
@@ -178,6 +173,7 @@ int find_directory_index(char *filename)
         if (dir[i].valid == FREE)
         {
             dir[i].valid = NOT_FREE;
+            strncpy(dir[i].filename, filename, 255);
             return i;
         }
     }
@@ -219,7 +215,6 @@ int find_free_block()
     return ret;
 }
 
-
 int put(char *filename)
 {
     struct stat buf;
@@ -249,8 +244,96 @@ int put(char *filename)
 
     // put the file in the img
 
+    FILE * ifp = fopen(filename, "r");
+
     int dir_index = find_directory_index(filename);
     int inode_index = find_free_inode();
+
+
+    int offset = 0;
+    int block_ptr_offset = 0;
+
+    int block_index = find_free_block();
+
+    dir[dir_index].inode = inode_index;
+    inodes[inode_index].size = size;
+
+
+    while (size > 0) {
+
+        fseek(ifp, offset, SEEK_SET);
+
+
+      int bytes  = fread( blocks[block_index], BLOCK_SIZE, 1, ifp );
+      
+      if( bytes == 0 && !feof( ifp ) )
+      {
+        printf("An error occured reading from the input file.\n");
+        return -1;
+      }
+
+      clearerr( ifp );
+
+      size -= BLOCK_SIZE;
+      
+      offset += BLOCK_SIZE;
+
+      // Increment the index into the block array 
+    inodes[inode_index].blocks[block_ptr_offset] = block_index;
+      block_index++;
+      block_ptr_offset++;
+    }
+
+    fclose(ifp);
+    strcpy(dir[dir_index].filename, filename);
+    dir[dir_index].inode = inode_index;
+
+    return 0;
+}   
+
+int get(char * filename, char * newfilename) {
+    FILE * ofp;
+    ofp = fopen(newfilename, "w");
+
+    struct stat buf;
+    int temp;
+
+    if (ofp == NULL) {
+        printf("Could not open output file: %s\n", filename );
+        perror("Opening output file returned");
+        return -1; 
+    }
+
+    temp = stat(filename, &buf);
+
+    int offset = 0;
+    // int size = buf.st_size;
+
+    int dir_index = find_directory_index(filename);
+    int inode_index = dir[dir_index].inode;
+    int size = inodes[inode_index].size;
+
+    int block_index = inodes[inode_index].blocks[0];
+    while(size > 0) {
+
+        int bytes;
+
+        if (size < BLOCK_SIZE) {
+            bytes = size;
+        } else {
+            bytes = BLOCK_SIZE;
+        }
+
+        fwrite(blocks[block_index], bytes, 1, ofp);
+
+        size -= BLOCK_SIZE;
+        offset += BLOCK_SIZE;
+        block_index++; 
+    }
+
+    fclose(ofp);
+
+    return 0;
 }
 
 void list() {
@@ -259,9 +342,31 @@ void list() {
         // if valid and not hidden print it
         if (dir[i].valid == NOT_FREE) {
             int inode_idex = dir[i].inode;
-            printf("%s %s\n", dir[i].filename, inodes[inode_idex].size);
+            printf("%s %d\n", dir[i].filename, inodes[inode_idex].size);
         }
     }
+}
+
+void open_fs(char * filename) {
+    fd = fopen(filename, "r+");
+    memset(&blocks[0],0,NUM_BLOCKS * BLOCK_SIZE);
+
+    fread(&blocks[0], NUM_BLOCKS, BLOCK_SIZE, fd);
+
+    // fclose(fd);
+}
+
+void close_fs() {
+    fwrite(&blocks[0], NUM_BLOCKS, BLOCK_SIZE, fd);
+
+    fclose(fd); 
+}
+void help() {
+    printf("put\tCopy the file to the file system\n");
+    printf("get\tRetrieve the file from the file system.\n");
+    printf("get\tRetrieve the file from the file system.\n");
+
+
 }
 
 int main()
@@ -269,8 +374,7 @@ int main()
 
     init_fs("disk.image");
 
-    // hey, compiler, i REALLY want to cast this thing to a directory :)
-    dir = (struct directory *)&blocks[0];
+    dir = (struct directory_entry *)&blocks[0];
     inodes = (struct inode *)&blocks[3];
 
     free_inode_list = (uint8_t *)&blocks[1];
@@ -326,10 +430,38 @@ int main()
         // Now print the tokenized input as a debug check
         // \TODO Remove this code and replace with your shell functionality
 
-        int token_index = 0;
-        for (token_index = 0; token_index < token_count; token_index++)
-        {
-            printf("token[%d] = %s\n", token_index, token[token_index]);
+        // int token_index = 0;
+        // for (token_index = 0; token_index < token_count; token_index++)
+        // {
+        //     printf("token[%d] = %s\n", token_index, token[token_index]);
+        // }
+
+        if (token[0] == NULL) {
+            printf("Cannot parse input\n");
+        } else if (strncmp(token[0], "put", MAX_COMMAND_SIZE) == 0) {
+            printf("file to put %s\n", token[1]);
+            put(token[1]);
+        } else if (strncmp(token[0], "get", MAX_COMMAND_SIZE) == 0) {
+            printf("file to get %s\n", token[1]);
+            get(token[1], "new.c");            
+        } else if (strncmp(token[0], "quit", MAX_COMMAND_SIZE) == 0) {
+            break;
+        } else if (strncmp(token[0], "del", MAX_COMMAND_SIZE) == 0) {
+           
+        } else if (strncmp(token[0], "list", MAX_COMMAND_SIZE) == 0) {
+            list();
+        } else if (strncmp(token[0], "df", MAX_COMMAND_SIZE) == 0) {
+            printf("Disk space: %d\n", disk_space());
+        } else if (strncmp(token[0], "open", MAX_COMMAND_SIZE) == 0) {
+            open_fs(token[1]);
+        } else if (strncmp(token[0], "close", MAX_COMMAND_SIZE) == 0) {
+
+        }  else if (strncmp(token[0], "attrib", MAX_COMMAND_SIZE) == 0) {
+
+        } else if (strncmp(token[0], "createfs", MAX_COMMAND_SIZE) == 0) {
+
+        } else {
+            help();
         }
 
         free(working_root);
